@@ -37,6 +37,7 @@ export default function Page() {
   const [data, setData] = useState<ProcessComparison[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
   // ── 筛选去抖 ──────────────────────────────────────
@@ -153,28 +154,50 @@ export default function Page() {
     setGlobalFilter("")
   }
 
-  function handleExport() {
-    const exportData = data.map((row) => ({
-      ID: row.zid,
-      项目: row.project,
-      车号: row.vehicleNo,
-      节车号: row.sectionNo,
-      工序: row.process,
-      "EAS BOM": row.easBom ? "是" : "否",
-      "EAS 工时": row.easWorkHours ? "是" : "否",
-      "MES 派工单": row.mesDispatch ? "是" : "否",
-      生产辅助工时: row.auxWorkHours ? "是" : "否",
-    }))
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const p = buildParams()
+      const q = new URLSearchParams()
+      q.set("all", "1")
+      if (p.search) q.set("search", p.search)
+      if (p.project) q.set("project", p.project)
+      if (p.vehicleNo) q.set("vehicleNo", p.vehicleNo)
+      if (p.sectionNo) q.set("sectionNo", p.sectionNo)
+      if (p.process) q.set("process", p.process)
+      q.set("sortField", p.sortField)
+      q.set("sortOrder", p.sortOrder)
 
-    const ws = XLSX.utils.json_to_sheet(exportData)
-    ws["!cols"] = [
-      { wch: 6 }, { wch: 22 }, { wch: 16 }, { wch: 10 }, { wch: 14 },
-      { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 14 },
-    ]
+      const res = await fetch(`/api/comparison?${q}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const json: ComparisonApiResponse = await res.json()
 
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, "跨系统工序一致比对")
-    XLSX.writeFile(wb, "跨系统工序一致比对.xlsx")
+      const exportData = json.data.map((row) => ({
+        ID: row.zid,
+        项目: row.project,
+        车号: row.vehicleNo,
+        节车号: row.sectionNo,
+        工序: row.process,
+        "EAS BOM": row.easBom ? "是" : "否",
+        "EAS 工时": row.easWorkHours ? "是" : "否",
+        "MES 派工单": row.mesDispatch ? "是" : "否",
+        生产辅助工时: row.auxWorkHours ? "是" : "否",
+      }))
+
+      const ws = XLSX.utils.json_to_sheet(exportData)
+      ws["!cols"] = [
+        { wch: 6 }, { wch: 22 }, { wch: 16 }, { wch: 10 }, { wch: 14 },
+        { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 14 },
+      ]
+
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, "跨系统工序一致比对")
+      XLSX.writeFile(wb, "跨系统工序一致比对.xlsx")
+    } catch (e) {
+      alert(`导出失败: ${e instanceof Error ? e.message : "未知错误"}`)
+    } finally {
+      setExporting(false)
+    }
   }
 
   return (
@@ -194,6 +217,7 @@ export default function Page() {
           onProcessFilterChange={setProcessFilter}
           onClearFilters={clearFilters}
           onExport={handleExport}
+          exporting={exporting}
           hasActiveFilters={hasActiveFilters}
         />
 

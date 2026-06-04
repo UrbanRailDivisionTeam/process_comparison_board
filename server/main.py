@@ -133,22 +133,21 @@ async def get_comparison_data(
     process: str | None = None,
     sortField: str = "zid",
     sortOrder: str = "asc",
+    all: int = 0,
 ) -> ComparisonResponse:
-    """返回跨系统工序一致比对数据（服务端分页/筛选/排序）。"""
+    """返回跨系统工序一致比对数据（服务端分页/筛选/排序）。
+    all=1 时忽略分页，返回全部筛选结果（用于导出）。"""
+    export_mode = all == 1
     logger.info(
-        f"收到请求 page={page} pageSize={pageSize} search={search!r} "
+        f"收到请求 page={page} pageSize={pageSize} export={export_mode} search={search!r} "
         f"project={project!r} vehicleNo={vehicleNo!r} sectionNo={sectionNo!r} "
         f"process={process!r} sort={sortField} {sortOrder}"
     )
 
-    # 参数校验
-    page = max(page, 1)
-    pageSize = min(max(pageSize, 1), 100)
     if sortField not in SORT_WHITELIST:
         sortField = "zid"
     sort_order_sql = "DESC" if sortOrder.lower() == "desc" else "ASC"
     sort_col = COLUMN_SQL_MAP[sortField]
-    offset = (page - 1) * pageSize
 
     where_sql, params = build_where_clause(search, project, vehicleNo, sectionNo, process)
 
@@ -158,7 +157,41 @@ async def get_comparison_data(
         logger.error(f"获取 ClickHouse 客户端失败:\n{traceback.format_exc()}")
         raise HTTPException(status_code=503, detail=f"数据库连接异常: {e}")
 
-    # 查询总数（COUNT 可考虑用近似值 uniq() 但精确计数也不慢）
+    # ── 导出模式：不分页，返回全部筛选数据 ──
+    if export_mode:
+        data_sql = f"""
+            SELECT
+                zid,
+                `项目`   AS project,
+                `车号`   AS vehicleNo,
+                `节车号` AS sectionNo,
+                `工序`   AS process,
+                `EASBOM中是否存在`            AS easBom,
+                `EAS工时中是否存在`            AS easWorkHours,
+                `MES派工单中是否存在`           AS mesDispatch,
+                `生产辅助系统工时中是否存在`    AS auxWorkHours
+            FROM dwd.comparison_of_process_work_hours
+            {where_sql}
+            ORDER BY {sort_col} {sort_order_sql}
+        """
+        try:
+            logger.info("执行导出查询（无分页）")
+            df = client.query_df(data_sql, parameters=params)
+            total = len(df)
+            logger.info(f"导出 {total} 行")
+        except Exception as e:
+            logger.error(f"导出查询失败:\n{traceback.format_exc()}")
+            raise HTTPException(status_code=502, detail=f"导出查询失败: {e}")
+
+        df = df.where(df.notna(), None)
+        records = _df_to_records(df)
+        return ComparisonResponse(data=records, total=total, page=1, pageSize=total)
+
+    # ── 分页模式 ──
+    page = max(page, 1)
+    pageSize = min(max(pageSize, 1), 100)
+    offset = (page - 1) * pageSize
+
     count_sql = f"SELECT count() AS cnt FROM dwd.comparison_of_process_work_hours{where_sql}"
     try:
         cnt_df = client.query_df(count_sql, parameters=params)
@@ -171,7 +204,6 @@ async def get_comparison_data(
     if total == 0:
         return ComparisonResponse(data=[], total=0, page=page, pageSize=pageSize)
 
-    # 查询分页数据
     data_sql = f"""
         SELECT
             zid,
@@ -196,33 +228,29 @@ async def get_comparison_data(
         logger.error(f"数据查询失败:\n{traceback.format_exc()}")
         raise HTTPException(status_code=502, detail=f"数据查询失败: {e}")
 
-    try:
-        df = df.where(df.notna(), None)
-        records = [
-            ComparisonRecord(
-                zid=int(row["zid"]),
-                project=str(row["project"]),
-                vehicleNo=str(row["vehicleNo"]),
-                sectionNo=str(row["sectionNo"]),
-                process=str(row["process"]),
-                easBom=int(row["easBom"]),
-                easWorkHours=int(row["easWorkHours"]),
-                mesDispatch=int(row["mesDispatch"]),
-                auxWorkHours=int(row["auxWorkHours"]),
-            )
-            for row in df.to_dict(orient="records")
-        ]
-    except Exception as e:
-        logger.error(f"数据转换失败:\n{traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"数据转换异常: {e}")
+    df = df.where(df.notna(), None)
+    records = _df_to_records(df)
 
     logger.info(f"响应: {len(records)} 条 / 共 {total} 条")
-    return ComparisonResponse(
-        data=records,
-        total=total,
-        page=page,
-        pageSize=pageSize,
-    )
+    return ComparisonResponse(data=records, total=total, page=page, pageSize=pageSize)
+
+
+def _df_to_records(df) -> list[ComparisonRecord]:
+    """DataFrame → ComparisonRecord 列表。"""
+    return [
+        ComparisonRecord(
+            zid=int(row["zid"]),
+            project=str(row["project"]),
+            vehicleNo=str(row["vehicleNo"]),
+            sectionNo=str(row["sectionNo"]),
+            process=str(row["process"]),
+            easBom=int(row["easBom"]),
+            easWorkHours=int(row["easWorkHours"]),
+            mesDispatch=int(row["mesDispatch"]),
+            auxWorkHours=int(row["auxWorkHours"]),
+        )
+        for row in df.to_dict(orient="records")
+    ]
 
 
 # ── 应用 ───────────────────────────────────────────────

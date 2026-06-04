@@ -17,6 +17,7 @@ interface DataTableToolbarProps {
   onProcessFilterChange: (value: string) => void
   onClearFilters: () => void
   onExport: () => void
+  exporting?: boolean
   hasActiveFilters: boolean
 }
 
@@ -33,6 +34,7 @@ export function DataTableToolbar({
   onProcessFilterChange,
   onClearFilters,
   onExport,
+  exporting,
   hasActiveFilters,
 }: DataTableToolbarProps) {
   return (
@@ -85,9 +87,9 @@ export function DataTableToolbar({
         )}
 
         <div className="ml-auto">
-          <Button variant="outline" size="sm" onClick={onExport}>
+          <Button variant="outline" size="sm" onClick={onExport} disabled={exporting}>
             <Download className="size-3.5" />
-            导出Excel
+            {exporting ? "导出中..." : "导出Excel"}
           </Button>
         </div>
       </div>
