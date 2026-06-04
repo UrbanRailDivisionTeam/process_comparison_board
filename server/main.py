@@ -60,6 +60,12 @@ class ComparisonResponse(BaseModel):
     pageSize: int
 
 
+class FilterOptions(BaseModel):
+    projects: list[str]
+    sectionNos: list[str]
+    processes: list[str]
+
+
 # ── 连接池 ─────────────────────────────────────────────
 _ch_client: Client | None = None
 
@@ -225,6 +231,36 @@ async def get_comparison_data(
     )
 
 
+@get("/api/filter-options")
+async def get_filter_options() -> FilterOptions:
+    """返回筛选下拉选项（项目、节车号、工序的去重值）。"""
+    logger.info("收到 /api/filter-options 请求")
+    try:
+        client = get_ch_client()
+    except Exception as e:
+        logger.error(f"获取 ClickHouse 客户端失败:\n{traceback.format_exc()}")
+        raise HTTPException(status_code=503, detail=f"数据库连接异常: {e}")
+
+    try:
+        proj_df = client.query_df("SELECT DISTINCT `项目` AS val FROM dwd.comparison_of_process_work_hours ORDER BY val")
+        sect_df = client.query_df("SELECT DISTINCT `节车号` AS val FROM dwd.comparison_of_process_work_hours ORDER BY val")
+        proc_df = client.query_df("SELECT DISTINCT `工序` AS val FROM dwd.comparison_of_process_work_hours ORDER BY val")
+
+        projects = [str(v) for v in proj_df["val"].tolist()]
+        sectionNos = [str(v) for v in sect_df["val"].tolist()]
+        processes = [str(v) for v in proc_df["val"].tolist()]
+
+        logger.info(f"筛选选项: {len(projects)} 个项目, {len(sectionNos)} 个节车号, {len(processes)} 个工序")
+        return FilterOptions(
+            projects=projects,
+            sectionNos=sectionNos,
+            processes=processes,
+        )
+    except Exception as e:
+        logger.error(f"筛选选项查询失败:\n{traceback.format_exc()}")
+        raise HTTPException(status_code=502, detail=f"筛选选项查询失败: {e}")
+
+
 # ── 应用 ───────────────────────────────────────────────
 cors_config = CORSConfig(
     allow_origins=["*"],
@@ -242,7 +278,7 @@ static_router = create_static_files_router(
 )
 
 app = Litestar(
-    route_handlers=[get_comparison_data, static_router],
+    route_handlers=[get_comparison_data, get_filter_options, static_router],
     cors_config=cors_config,
 )
 

@@ -16,3 +16,9 @@ export interface ComparisonApiResponse {
     page: number
     pageSize: number
 }
+
+export interface FilterOptions {
+    projects: string[]
+    sectionNos: string[]
+    processes: string[]
+}

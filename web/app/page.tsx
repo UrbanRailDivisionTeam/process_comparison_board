@@ -1,7 +1,7 @@
 "use client"
 "use no memo"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import {
   useReactTable,
   getCoreRowModel,
@@ -16,9 +16,14 @@ import { columns } from "@/components/data-table/columns"
 import { DataTable } from "@/components/data-table/data-table"
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar"
 import { HeaderBar } from "@/components/header-bar"
-import type { ComparisonApiResponse, ProcessComparison } from "@/lib/types"
+import type { ComparisonApiResponse, FilterOptions, ProcessComparison } from "@/lib/types"
 
 export default function Page() {
+  // ── 筛选下拉选项（从后端获取）───────────────────────
+  const [projectOptions, setProjectOptions] = useState<string[]>([])
+  const [sectionNoOptions, setSectionNoOptions] = useState<string[]>([])
+  const [processOptions, setProcessOptions] = useState<string[]>([])
+
   // ── 筛选状态 ──────────────────────────────────────
   const [globalFilter, setGlobalFilter] = useState("")
   const [projectFilter, setProjectFilter] = useState("all")
@@ -41,6 +46,23 @@ export default function Page() {
 
   // ── 筛选去抖 ──────────────────────────────────────
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ── 加载筛选选项（仅首次）──────────────────────────
+  useEffect(() => {
+    fetch("/api/filter-options")
+      .then((res) => res.json())
+      .then((opts: FilterOptions) => {
+        setProjectOptions(opts.projects)
+        setSectionNoOptions(opts.sectionNos)
+        setProcessOptions(opts.processes)
+      })
+      .catch(() => {
+        // 使用默认值兜底
+        setProjectOptions(["CR400AF", "CR300BF", "CRH380A", "CRH2G", "复兴号智能动车组"])
+        setSectionNoOptions(["第1节", "第2节", "第3节", "第4节", "第5节", "第6节", "第7节", "第8节"])
+        setProcessOptions([])
+      })
+  }, [])
 
   type FetchParams = {
     page: number
@@ -137,18 +159,6 @@ export default function Page() {
       columnVisibility,
     },
   })
-
-  // ── 筛选下拉选项（首次加载后从 API 获取，这里用静态列表）───
-  const projectOptions = useMemo(() => ["CR400AF", "CR300BF", "CRH380A", "CRH2G", "复兴号智能动车组"], [])
-  const sectionNoOptions = useMemo(() => Array.from({ length: 8 }, (_, i) => `第${i + 1}节`), [])
-  const processOptions = useMemo(() => [
-    "车体焊接", "底架组装", "侧墙组装", "车顶组装", "端墙组装",
-    "转向架安装", "制动系统安装", "电气布线", "空调安装", "内装",
-    "座椅安装", "地板铺设", "门窗安装", "涂装底漆", "涂装面漆",
-    "标识粘贴", "管路连接", "线缆敷设", "绝缘测试", "耐压试验",
-    "淋雨试验", "称重调平", "限界检测", "联调联试", "静态调试",
-    "动态调试", "出厂验收", "整车落成", "编组连挂", "试运行",
-  ], [])
 
   const hasActiveFilters =
     projectFilter !== "all" ||
