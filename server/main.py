@@ -1,6 +1,5 @@
 import logging
 import traceback
-from typing import Optional
 
 from litestar import Litestar, Request, get
 from litestar.config.cors import CORSConfig
@@ -33,12 +32,6 @@ class ComparisonRecord(BaseModel):
     easWorkHours: int
     mesDispatch: int
     auxWorkHours: int
-
-
-class ErrorResponse(BaseModel):
-    detail: str
-    error_type: str
-    traceback: Optional[str] = None
 
 
 def get_ch_client():
@@ -78,14 +71,14 @@ async def get_comparison_data() -> list[ComparisonRecord]:
     sql = """
         SELECT
             zid,
-            项目   AS project,
-            车号   AS vehicleNo,
-            节车号 AS sectionNo,
-            工序   AS process,
-            EASBOM中是否存在            AS easBom,
-            EAS工时中是否存在            AS easWorkHours,
-            MES派工单中是否存在           AS mesDispatch,
-            生产辅助系统工时中是否存在    AS auxWorkHours
+            `项目`   AS project,
+            `车号`   AS vehicleNo,
+            `节车号` AS sectionNo,
+            `工序`   AS process,
+            `EASBOM中是否存在`            AS easBom,
+            `EAS工时中是否存在`            AS easWorkHours,
+            `MES派工单中是否存在`           AS mesDispatch,
+            `生产辅助系统工时中是否存在`    AS auxWorkHours
         FROM dwd.comparison_of_process_work_hours
         ORDER BY zid
     """
@@ -123,13 +116,13 @@ async def get_comparison_data() -> list[ComparisonRecord]:
 
 
 # ── 全局异常处理 ───────────────────────────────────────
-def global_exception_handler(request: Request, exc: Exception) -> ErrorResponse:
+def global_exception_handler(request: Request, exc: Exception) -> dict:
     logger.error(f"未捕获异常 {request.url}:\n{traceback.format_exc()}")
-    return ErrorResponse(
-        detail=str(exc),
-        error_type=type(exc).__name__,
-        traceback=traceback.format_exc(),
-    )
+    return {
+        "detail": str(exc),
+        "error_type": type(exc).__name__,
+        "traceback": traceback.format_exc(),
+    }
 
 
 # ── 应用 ───────────────────────────────────────────────
