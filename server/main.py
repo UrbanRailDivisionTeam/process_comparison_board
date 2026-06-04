@@ -48,9 +48,21 @@ async def get_comparison_data() -> list[ComparisonRecord]:
         ORDER BY zid
     """
     df = client.query_df(sql)
-    # pandas NaN → Python int/str 确保 pydantic 序列化正确
-    df = df.fillna({"easBom": 0, "easWorkHours": 0, "mesDispatch": 0, "auxWorkHours": 0})
-    records = [ComparisonRecord(**row) for row in df.to_dict(orient="records")]
+    df = df.where(df.notna(), None)
+    records = [
+        ComparisonRecord(
+            zid=int(row["zid"]),
+            project=str(row["project"]),
+            vehicleNo=str(row["vehicleNo"]),
+            sectionNo=str(row["sectionNo"]),
+            process=str(row["process"]),
+            easBom=int(row["easBom"]),
+            easWorkHours=int(row["easWorkHours"]),
+            mesDispatch=int(row["mesDispatch"]),
+            auxWorkHours=int(row["auxWorkHours"]),
+        )
+        for row in df.to_dict(orient="records")
+    ]
     return records
 
 
