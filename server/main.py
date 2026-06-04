@@ -74,7 +74,7 @@ app = Litestar(
     cors_config=cors_config,
     static_files_config=[
         StaticFilesConfig(
-            path="/static",
+            path="/",
             directories=["static"],
             name="static",
             html_mode=True)
