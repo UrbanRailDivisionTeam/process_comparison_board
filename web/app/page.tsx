@@ -20,8 +20,6 @@ import { DataTableToolbar } from "@/components/data-table/data-table-toolbar"
 import { HeaderBar } from "@/components/header-bar"
 import type { ProcessComparison } from "@/lib/types"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
-
 export default function Page() {
   const [data, setData] = useState<ProcessComparison[]>([])
   const [loading, setLoading] = useState(true)
@@ -41,7 +39,7 @@ export default function Page() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`${API_URL}/api/comparison`)
+      const res = await fetch("/api/comparison")
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json: ProcessComparison[] = await res.json()
       setData(json)

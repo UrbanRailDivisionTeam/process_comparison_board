@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "deploy": "next build && (Remove-Item -LiteralPath '../server/static' -Recurse -Force -ErrorAction SilentlyContinue) && Copy-Item -LiteralPath 'out' -Destination '../server/static' -Recurse",
     "start": "next start",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
