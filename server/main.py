@@ -24,13 +24,14 @@ CH_PASSWORD = "Swq8855830."
 
 # ── 允许的排序字段白名单（防注入）──────────────────────
 SORT_WHITELIST = {
-    "zid", "project", "vehicleNo", "sectionNo", "process",
+    "zid", "project", "projectAbbr", "vehicleNo", "sectionNo", "process",
     "easBom", "easWorkHours", "mesDispatch", "auxWorkHours",
 }
 
 COLUMN_SQL_MAP = {
     "zid":           "zid",
     "project":       "`项目`",
+    "projectAbbr":   "`项目简称`",
     "vehicleNo":     "`车号`",
     "sectionNo":     "`节车号`",
     "process":       "`工序`",
@@ -44,6 +45,7 @@ COLUMN_SQL_MAP = {
 class ComparisonRecord(BaseModel):
     zid: int
     project: str
+    projectAbbr: str
     vehicleNo: str
     sectionNo: str
     process: str
@@ -82,6 +84,7 @@ def get_ch_client() -> Client:
 def build_where_clause(
     search: str | None,
     project: str | None,
+    projectAbbr: str | None,
     vehicleNo: str | None,
     sectionNo: str | None,
     process: str | None,
@@ -94,6 +97,7 @@ def build_where_clause(
         conditions.append(
             "("
             "  `项目`   LIKE {search:String} OR "
+            "  `项目简称` LIKE {search:String} OR "
             "  `车号`   LIKE {search:String} OR "
             "  `节车号` LIKE {search:String} OR "
             "  `工序`   LIKE {search:String}"
@@ -104,6 +108,10 @@ def build_where_clause(
     if project:
         conditions.append("`项目` LIKE {project:String}")
         params["project"] = f"%{project}%"
+
+    if projectAbbr:
+        conditions.append("`项目简称` LIKE {projectAbbr:String}")
+        params["projectAbbr"] = f"%{projectAbbr}%"
 
     if vehicleNo:
         conditions.append("`车号` LIKE {vehicleNo:String}")
@@ -128,6 +136,7 @@ async def get_comparison_data(
     pageSize: int = 30,
     search: str | None = None,
     project: str | None = None,
+    projectAbbr: str | None = None,
     vehicleNo: str | None = None,
     sectionNo: str | None = None,
     process: str | None = None,
@@ -140,7 +149,7 @@ async def get_comparison_data(
     export_mode = all == 1
     logger.info(
         f"收到请求 page={page} pageSize={pageSize} export={export_mode} search={search!r} "
-        f"project={project!r} vehicleNo={vehicleNo!r} sectionNo={sectionNo!r} "
+        f"project={project!r} projectAbbr={projectAbbr!r} vehicleNo={vehicleNo!r} sectionNo={sectionNo!r} "
         f"process={process!r} sort={sortField} {sortOrder}"
     )
 
@@ -149,7 +158,7 @@ async def get_comparison_data(
     sort_order_sql = "DESC" if sortOrder.lower() == "desc" else "ASC"
     sort_col = COLUMN_SQL_MAP[sortField]
 
-    where_sql, params = build_where_clause(search, project, vehicleNo, sectionNo, process)
+    where_sql, params = build_where_clause(search, project, projectAbbr, vehicleNo, sectionNo, process)
 
     try:
         client = get_ch_client()
@@ -162,10 +171,11 @@ async def get_comparison_data(
         data_sql = f"""
             SELECT
                 zid,
-                `项目`   AS project,
-                `车号`   AS vehicleNo,
-                `节车号` AS sectionNo,
-                `工序`   AS process,
+                `项目`     AS project,
+                `项目简称` AS projectAbbr,
+                `车号`     AS vehicleNo,
+                `节车号`   AS sectionNo,
+                `工序`     AS process,
                 `EASBOM中是否存在`            AS easBom,
                 `EAS工时中是否存在`            AS easWorkHours,
                 `MES派工单中是否存在`           AS mesDispatch,
@@ -207,10 +217,11 @@ async def get_comparison_data(
     data_sql = f"""
         SELECT
             zid,
-            `项目`   AS project,
-            `车号`   AS vehicleNo,
-            `节车号` AS sectionNo,
-            `工序`   AS process,
+            `项目`     AS project,
+            `项目简称` AS projectAbbr,
+            `车号`     AS vehicleNo,
+            `节车号`   AS sectionNo,
+            `工序`     AS process,
             `EASBOM中是否存在`            AS easBom,
             `EAS工时中是否存在`            AS easWorkHours,
             `MES派工单中是否存在`           AS mesDispatch,
@@ -241,6 +252,7 @@ def _df_to_records(df) -> list[ComparisonRecord]:
         ComparisonRecord(
             zid=int(row["zid"]),
             project=str(row["project"]),
+            projectAbbr=str(row["projectAbbr"]),
             vehicleNo=str(row["vehicleNo"]),
             sectionNo=str(row["sectionNo"]),
             process=str(row["process"]),

@@ -9,6 +9,8 @@ interface DataTableToolbarProps {
   onSearchChange: (value: string) => void
   projectFilter: string
   onProjectFilterChange: (value: string) => void
+  projectAbbrFilter: string
+  onProjectAbbrFilterChange: (value: string) => void
   vehicleNoFilter: string
   onVehicleNoFilterChange: (value: string) => void
   sectionNoFilter: string
@@ -26,6 +28,8 @@ export function DataTableToolbar({
   onSearchChange,
   projectFilter,
   onProjectFilterChange,
+  projectAbbrFilter,
+  onProjectAbbrFilterChange,
   vehicleNoFilter,
   onVehicleNoFilterChange,
   sectionNoFilter,
@@ -62,6 +66,11 @@ export function DataTableToolbar({
           placeholder="项目筛选..."
           value={projectFilter}
           onChange={onProjectFilterChange}
+        />
+        <FilterInput
+          placeholder="项目简称筛选..."
+          value={projectAbbrFilter}
+          onChange={onProjectAbbrFilterChange}
         />
         <FilterInput
           placeholder="车号筛选..."

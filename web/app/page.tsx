@@ -22,6 +22,7 @@ export default function Page() {
   // ── 筛选状态（全部为字符串模糊筛选）───────────────
   const [globalFilter, setGlobalFilter] = useState("")
   const [projectFilter, setProjectFilter] = useState("")
+  const [projectAbbrFilter, setProjectAbbrFilter] = useState("")
   const [vehicleNoFilter, setVehicleNoFilter] = useState("")
   const [sectionNoFilter, setSectionNoFilter] = useState("")
   const [processFilter, setProcessFilter] = useState("")
@@ -48,6 +49,7 @@ export default function Page() {
     pageSize: number
     search: string
     project: string
+    projectAbbr: string
     vehicleNo: string
     sectionNo: string
     process: string
@@ -68,6 +70,7 @@ export default function Page() {
     q.set("pageSize", String(params.pageSize))
     if (params.search) q.set("search", params.search)
     if (params.project) q.set("project", params.project)
+    if (params.projectAbbr) q.set("projectAbbr", params.projectAbbr)
     if (params.vehicleNo) q.set("vehicleNo", params.vehicleNo)
     if (params.sectionNo) q.set("sectionNo", params.sectionNo)
     if (params.process) q.set("process", params.process)
@@ -99,13 +102,14 @@ export default function Page() {
       pageSize: pagination.pageSize,
       search: globalFilter,
       project: projectFilter,
+      projectAbbr: projectAbbrFilter,
       vehicleNo: vehicleNoFilter,
       sectionNo: sectionNoFilter,
       process: processFilter,
       sortField,
       sortOrder,
     }
-  }, [pagination, sorting, globalFilter, projectFilter, vehicleNoFilter, sectionNoFilter, processFilter])
+  }, [pagination, sorting, globalFilter, projectFilter, projectAbbrFilter, vehicleNoFilter, sectionNoFilter, processFilter])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -141,6 +145,7 @@ export default function Page() {
 
   const hasActiveFilters =
     projectFilter !== "" ||
+    projectAbbrFilter !== "" ||
     vehicleNoFilter !== "" ||
     sectionNoFilter !== "" ||
     processFilter !== "" ||
@@ -148,6 +153,7 @@ export default function Page() {
 
   function clearFilters() {
     setProjectFilter("")
+    setProjectAbbrFilter("")
     setVehicleNoFilter("")
     setSectionNoFilter("")
     setProcessFilter("")
@@ -162,6 +168,7 @@ export default function Page() {
       q.set("all", "1")
       if (p.search) q.set("search", p.search)
       if (p.project) q.set("project", p.project)
+      if (p.projectAbbr) q.set("projectAbbr", p.projectAbbr)
       if (p.vehicleNo) q.set("vehicleNo", p.vehicleNo)
       if (p.sectionNo) q.set("sectionNo", p.sectionNo)
       if (p.process) q.set("process", p.process)
@@ -175,6 +182,7 @@ export default function Page() {
       const exportData = json.data.map((row) => ({
         ID: row.zid,
         项目: row.project,
+        项目简称: row.projectAbbr,
         车号: row.vehicleNo,
         节车号: row.sectionNo,
         工序: row.process,
@@ -186,7 +194,7 @@ export default function Page() {
 
       const ws = XLSX.utils.json_to_sheet(exportData)
       ws["!cols"] = [
-        { wch: 6 }, { wch: 22 }, { wch: 16 }, { wch: 10 }, { wch: 14 },
+        { wch: 6 }, { wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 10 }, { wch: 14 },
         { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 14 },
       ]
 
@@ -209,6 +217,8 @@ export default function Page() {
           onSearchChange={setGlobalFilter}
           projectFilter={projectFilter}
           onProjectFilterChange={setProjectFilter}
+          projectAbbrFilter={projectAbbrFilter}
+          onProjectAbbrFilterChange={setProjectAbbrFilter}
           vehicleNoFilter={vehicleNoFilter}
           onVehicleNoFilterChange={setVehicleNoFilter}
           sectionNoFilter={sectionNoFilter}

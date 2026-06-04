@@ -1,6 +1,7 @@
 export interface ProcessComparison {
     zid: number
     project: string // 项目
+    projectAbbr: string // 项目简称
     vehicleNo: string // 车号
     sectionNo: string // 节车号
     process: string // 工序

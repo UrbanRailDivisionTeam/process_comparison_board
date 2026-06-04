@@ -35,6 +35,11 @@ export const columns: ColumnDef<ProcessComparison>[] = [
         filterFn: "equals",
     },
     {
+        accessorKey: "projectAbbr",
+        header: "项目简称",
+        filterFn: "equals",
+    },
+    {
         accessorKey: "vehicleNo",
         header: "车号",
         cell: ({ row }) => <span className="font-mono text-sm">{row.original.vehicleNo}</span>,
