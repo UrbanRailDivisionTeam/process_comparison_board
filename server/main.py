@@ -74,7 +74,6 @@ def get_ch_client() -> Client:
             password=CH_PASSWORD,
             connect_timeout=10,
             send_receive_timeout=300,
-            pool_size=4,
         )
         logger.info(f"ClickHouse 连接池已创建: {CH_HOST}:{CH_PORT}")
     return _ch_client
