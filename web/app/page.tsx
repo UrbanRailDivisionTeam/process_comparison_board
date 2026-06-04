@@ -16,20 +16,15 @@ import { columns } from "@/components/data-table/columns"
 import { DataTable } from "@/components/data-table/data-table"
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar"
 import { HeaderBar } from "@/components/header-bar"
-import type { ComparisonApiResponse, FilterOptions, ProcessComparison } from "@/lib/types"
+import type { ComparisonApiResponse, ProcessComparison } from "@/lib/types"
 
 export default function Page() {
-  // ── 筛选下拉选项（从后端获取）───────────────────────
-  const [projectOptions, setProjectOptions] = useState<string[]>([])
-  const [sectionNoOptions, setSectionNoOptions] = useState<string[]>([])
-  const [processOptions, setProcessOptions] = useState<string[]>([])
-
-  // ── 筛选状态 ──────────────────────────────────────
+  // ── 筛选状态（全部为字符串模糊筛选）───────────────
   const [globalFilter, setGlobalFilter] = useState("")
-  const [projectFilter, setProjectFilter] = useState("all")
+  const [projectFilter, setProjectFilter] = useState("")
   const [vehicleNoFilter, setVehicleNoFilter] = useState("")
-  const [sectionNoFilter, setSectionNoFilter] = useState("all")
-  const [processFilter, setProcessFilter] = useState("all")
+  const [sectionNoFilter, setSectionNoFilter] = useState("")
+  const [processFilter, setProcessFilter] = useState("")
 
   // ── 表格状态（服务端）─────────────────────────────
   const [sorting, setSorting] = useState<SortingState>([])
@@ -46,23 +41,6 @@ export default function Page() {
 
   // ── 筛选去抖 ──────────────────────────────────────
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // ── 加载筛选选项（仅首次）──────────────────────────
-  useEffect(() => {
-    fetch("/api/filter-options")
-      .then((res) => res.json())
-      .then((opts: FilterOptions) => {
-        setProjectOptions(opts.projects.filter(Boolean))
-        setSectionNoOptions(opts.sectionNos.filter(Boolean))
-        setProcessOptions(opts.processes.filter(Boolean))
-      })
-      .catch(() => {
-        // 使用默认值兜底
-        setProjectOptions(["CR400AF", "CR300BF", "CRH380A", "CRH2G", "复兴号智能动车组"])
-        setSectionNoOptions(["第1节", "第2节", "第3节", "第4节", "第5节", "第6节", "第7节", "第8节"])
-        setProcessOptions([])
-      })
-  }, [])
 
   type FetchParams = {
     page: number
@@ -119,10 +97,10 @@ export default function Page() {
       page: pagination.pageIndex + 1,
       pageSize: pagination.pageSize,
       search: globalFilter,
-      project: projectFilter === "all" ? "" : projectFilter,
+      project: projectFilter,
       vehicleNo: vehicleNoFilter,
-      sectionNo: sectionNoFilter === "all" ? "" : sectionNoFilter,
-      process: processFilter === "all" ? "" : processFilter,
+      sectionNo: sectionNoFilter,
+      process: processFilter,
       sortField,
       sortOrder,
     }
@@ -161,17 +139,17 @@ export default function Page() {
   })
 
   const hasActiveFilters =
-    projectFilter !== "all" ||
+    projectFilter !== "" ||
     vehicleNoFilter !== "" ||
-    sectionNoFilter !== "all" ||
-    processFilter !== "all" ||
+    sectionNoFilter !== "" ||
+    processFilter !== "" ||
     globalFilter !== ""
 
   function clearFilters() {
-    setProjectFilter("all")
+    setProjectFilter("")
     setVehicleNoFilter("")
-    setSectionNoFilter("all")
-    setProcessFilter("all")
+    setSectionNoFilter("")
+    setProcessFilter("")
     setGlobalFilter("")
   }
 
@@ -206,15 +184,12 @@ export default function Page() {
         <DataTableToolbar
           searchValue={globalFilter}
           onSearchChange={setGlobalFilter}
-          projectOptions={projectOptions}
           projectFilter={projectFilter}
           onProjectFilterChange={setProjectFilter}
           vehicleNoFilter={vehicleNoFilter}
           onVehicleNoFilterChange={setVehicleNoFilter}
-          sectionNoOptions={sectionNoOptions}
           sectionNoFilter={sectionNoFilter}
           onSectionNoFilterChange={setSectionNoFilter}
-          processOptions={processOptions}
           processFilter={processFilter}
           onProcessFilterChange={setProcessFilter}
           onClearFilters={clearFilters}
