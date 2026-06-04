@@ -1,16 +1,14 @@
 "use client"
 "use no memo"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   useReactTable,
   getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
   type ColumnFiltersState,
   type SortingState,
   type VisibilityState,
+  type PaginationState,
 } from "@tanstack/react-table"
 import * as XLSX from "xlsx"
 
@@ -18,92 +16,139 @@ import { columns } from "@/components/data-table/columns"
 import { DataTable } from "@/components/data-table/data-table"
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar"
 import { HeaderBar } from "@/components/header-bar"
-import type { ProcessComparison } from "@/lib/types"
+import type { ComparisonApiResponse, ProcessComparison } from "@/lib/types"
 
 export default function Page() {
-  const [data, setData] = useState<ProcessComparison[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const [sorting, setSorting] = useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  // ── 筛选状态 ──────────────────────────────────────
   const [globalFilter, setGlobalFilter] = useState("")
-  const [columnVisibility] = useState<VisibilityState>({})
-
   const [projectFilter, setProjectFilter] = useState("all")
   const [vehicleNoFilter, setVehicleNoFilter] = useState("")
   const [sectionNoFilter, setSectionNoFilter] = useState("all")
   const [processFilter, setProcessFilter] = useState("all")
 
-  const fetchData = useCallback(async () => {
+  // ── 表格状态（服务端）─────────────────────────────
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 30 })
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [columnVisibility] = useState<VisibilityState>({})
+  const [rowCount, setRowCount] = useState(0)
+
+  // ── 数据 & 加载 ──────────────────────────────────
+  const [data, setData] = useState<ProcessComparison[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+
+  // ── 筛选去抖 ──────────────────────────────────────
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  type FetchParams = {
+    page: number
+    pageSize: number
+    search: string
+    project: string
+    vehicleNo: string
+    sectionNo: string
+    process: string
+    sortField: string
+    sortOrder: string
+  }
+
+  const fetchData = useCallback(async (params: FetchParams) => {
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
     setLoading(true)
     setError(null)
+
+    const q = new URLSearchParams()
+    q.set("page", String(params.page))
+    q.set("pageSize", String(params.pageSize))
+    if (params.search) q.set("search", params.search)
+    if (params.project) q.set("project", params.project)
+    if (params.vehicleNo) q.set("vehicleNo", params.vehicleNo)
+    if (params.sectionNo) q.set("sectionNo", params.sectionNo)
+    if (params.process) q.set("process", params.process)
+    q.set("sortField", params.sortField)
+    q.set("sortOrder", params.sortOrder)
+
     try {
-      const res = await fetch("/api/comparison")
+      const res = await fetch(`/api/comparison?${q}`, { signal: controller.signal })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const json: ProcessComparison[] = await res.json()
-      setData(json)
+      const json: ComparisonApiResponse = await res.json()
+      if (!controller.signal.aborted) {
+        setData(json.data)
+        setRowCount(json.total)
+      }
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return
       setError(e instanceof Error ? e.message : "获取数据失败")
     } finally {
-      setLoading(false)
+      if (!controller.signal.aborted) setLoading(false)
     }
   }, [])
 
+  // ── 筛选/分页/排序变化 → 触发 API 请求 ──────────
+  const buildParams = useCallback((): FetchParams => {
+    const sortField = sorting[0]?.id ?? "zid"
+    const sortOrder = sorting[0]?.desc ?? false ? "desc" : "asc"
+    return {
+      page: pagination.pageIndex + 1,
+      pageSize: pagination.pageSize,
+      search: globalFilter,
+      project: projectFilter === "all" ? "" : projectFilter,
+      vehicleNo: vehicleNoFilter,
+      sectionNo: sectionNoFilter === "all" ? "" : sectionNoFilter,
+      process: processFilter === "all" ? "" : processFilter,
+      sortField,
+      sortOrder,
+    }
+  }, [pagination, sorting, globalFilter, projectFilter, vehicleNoFilter, sectionNoFilter, processFilter])
+
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      fetchData(buildParams())
+    }, 200)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [buildParams, fetchData])
 
-  const uniqueProjects = useMemo(() => [...new Set(data.map((d) => d.project))].sort(), [data])
-  const uniqueSectionNos = useMemo(() => [...new Set(data.map((d) => d.sectionNo))].sort(), [data])
-  const uniqueProcesses = useMemo(() => [...new Set(data.map((d) => d.process))].sort(), [data])
-
-  const filteredData = useMemo(() => {
-    return data.filter((row) => {
-      if (projectFilter !== "all" && row.project !== projectFilter) return false
-      if (sectionNoFilter !== "all" && row.sectionNo !== sectionNoFilter) return false
-      if (processFilter !== "all" && row.process !== processFilter) return false
-
-      if (vehicleNoFilter) {
-        if (!row.vehicleNo.toLowerCase().includes(vehicleNoFilter.toLowerCase())) return false
-      }
-
-      if (globalFilter) {
-        const search = globalFilter.toLowerCase()
-        return (
-          row.process.toLowerCase().includes(search) ||
-          row.vehicleNo.toLowerCase().includes(search) ||
-          row.sectionNo.toLowerCase().includes(search) ||
-          row.project.toLowerCase().includes(search)
-        )
-      }
-
-      return true
-    })
-  }, [data, globalFilter, projectFilter, vehicleNoFilter, sectionNoFilter, processFilter])
-
+  // ── useReactTable（manual 模式）───────────────────
   const table = useReactTable<ProcessComparison>({
-    data: filteredData,
+    data,
     columns,
+    rowCount,
+    manualPagination: true,
+    manualFiltering: true,
+    manualSorting: true,
     onSortingChange: setSorting,
+    onPaginationChange: setPagination,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     state: {
       sorting,
+      pagination,
       columnFilters,
       globalFilter,
       columnVisibility,
     },
-    initialState: {
-      pagination: {
-        pageSize: 30,
-      },
-    },
   })
+
+  // ── 筛选下拉选项（首次加载后从 API 获取，这里用静态列表）───
+  const projectOptions = useMemo(() => ["CR400AF", "CR300BF", "CRH380A", "CRH2G", "复兴号智能动车组"], [])
+  const sectionNoOptions = useMemo(() => Array.from({ length: 8 }, (_, i) => `第${i + 1}节`), [])
+  const processOptions = useMemo(() => [
+    "车体焊接", "底架组装", "侧墙组装", "车顶组装", "端墙组装",
+    "转向架安装", "制动系统安装", "电气布线", "空调安装", "内装",
+    "座椅安装", "地板铺设", "门窗安装", "涂装底漆", "涂装面漆",
+    "标识粘贴", "管路连接", "线缆敷设", "绝缘测试", "耐压试验",
+    "淋雨试验", "称重调平", "限界检测", "联调联试", "静态调试",
+    "动态调试", "出厂验收", "整车落成", "编组连挂", "试运行",
+  ], [])
 
   const hasActiveFilters =
     projectFilter !== "all" ||
@@ -121,7 +166,7 @@ export default function Page() {
   }
 
   function handleExport() {
-    const exportData = filteredData.map((row) => ({
+    const exportData = data.map((row) => ({
       ID: row.zid,
       项目: row.project,
       车号: row.vehicleNo,
@@ -151,15 +196,15 @@ export default function Page() {
         <DataTableToolbar
           searchValue={globalFilter}
           onSearchChange={setGlobalFilter}
-          projectOptions={uniqueProjects}
+          projectOptions={projectOptions}
           projectFilter={projectFilter}
           onProjectFilterChange={setProjectFilter}
           vehicleNoFilter={vehicleNoFilter}
           onVehicleNoFilterChange={setVehicleNoFilter}
-          sectionNoOptions={uniqueSectionNos}
+          sectionNoOptions={sectionNoOptions}
           sectionNoFilter={sectionNoFilter}
           onSectionNoFilterChange={setSectionNoFilter}
-          processOptions={uniqueProcesses}
+          processOptions={processOptions}
           processFilter={processFilter}
           onProcessFilterChange={setProcessFilter}
           onClearFilters={clearFilters}
@@ -177,7 +222,7 @@ export default function Page() {
           <div className="flex h-48 flex-col items-center justify-center gap-3">
             <p className="text-sm text-destructive">数据加载失败：{error}</p>
             <button
-              onClick={fetchData}
+              onClick={() => fetchData(buildParams())}
               className="rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/80"
             >
               重新加载
@@ -186,7 +231,7 @@ export default function Page() {
         )}
 
         {!loading && !error && (
-          <DataTable table={table} totalRows={filteredData.length} />
+          <DataTable table={table} totalRows={rowCount} />
         )}
       </div>
     </div>

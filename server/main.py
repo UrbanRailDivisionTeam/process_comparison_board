@@ -1,12 +1,13 @@
 import logging
 import traceback
 
-from litestar import Litestar, Request, get
+from litestar import Litestar, get
 from litestar.config.cors import CORSConfig
 from litestar.exceptions import HTTPException
 from litestar.static_files import create_static_files_router
 from pydantic import BaseModel
 import clickhouse_connect
+from clickhouse_connect.driver.client import Client
 
 # ── 日志 ──────────────────────────────────────────────
 logging.basicConfig(
@@ -21,6 +22,24 @@ CH_PORT = 8123
 CH_USER = "cheakf"
 CH_PASSWORD = "Swq8855830."
 
+# ── 允许的排序字段白名单（防注入）──────────────────────
+SORT_WHITELIST = {
+    "zid", "project", "vehicleNo", "sectionNo", "process",
+    "easBom", "easWorkHours", "mesDispatch", "auxWorkHours",
+}
+
+COLUMN_SQL_MAP = {
+    "zid":           "zid",
+    "project":       "`项目`",
+    "vehicleNo":     "`车号`",
+    "sectionNo":     "`节车号`",
+    "process":       "`工序`",
+    "easBom":        "`EASBOM中是否存在`",
+    "easWorkHours":  "`EAS工时中是否存在`",
+    "mesDispatch":   "`MES派工单中是否存在`",
+    "auxWorkHours":  "`生产辅助系统工时中是否存在`",
+}
+
 
 class ComparisonRecord(BaseModel):
     zid: int
@@ -34,41 +53,127 @@ class ComparisonRecord(BaseModel):
     auxWorkHours: int
 
 
-def get_ch_client():
-    """创建 ClickHouse 客户端，失败时抛出明确异常。"""
-    try:
-        client = clickhouse_connect.get_client(
+class ComparisonResponse(BaseModel):
+    data: list[ComparisonRecord]
+    total: int
+    page: int
+    pageSize: int
+
+
+# ── 连接池 ─────────────────────────────────────────────
+_ch_client: Client | None = None
+
+
+def get_ch_client() -> Client:
+    global _ch_client
+    if _ch_client is None:
+        _ch_client = clickhouse_connect.get_client(
             host=CH_HOST,
             port=CH_PORT,
             username=CH_USER,
             password=CH_PASSWORD,
             connect_timeout=10,
-            send_receive_timeout=30,
+            send_receive_timeout=300,
+            pool_size=4,
         )
-        logger.info(f"ClickHouse 连接成功: {CH_HOST}:{CH_PORT}")
-        return client
-    except Exception as e:
-        logger.error(f"ClickHouse 连接失败: {e}")
-        raise HTTPException(
-            status_code=503,
-            detail=f"无法连接数据库 {CH_HOST}:{CH_PORT}: {e}",
+        logger.info(f"ClickHouse 连接池已创建: {CH_HOST}:{CH_PORT}")
+    return _ch_client
+
+
+def build_where_clause(
+    search: str | None,
+    project: str | None,
+    vehicleNo: str | None,
+    sectionNo: str | None,
+    process: str | None,
+) -> tuple[str, dict]:
+    """构建 WHERE 子句和参数。返回 (sql, params_dict)。"""
+    conditions: list[str] = []
+    params: dict[str, str] = {}
+
+    if search:
+        conditions.append(
+            "("
+            "  `项目`   LIKE {search:String} OR "
+            "  `车号`   LIKE {search:String} OR "
+            "  `节车号` LIKE {search:String} OR "
+            "  `工序`   LIKE {search:String}"
+            ")"
         )
+        params["search"] = f"%{search}%"
+
+    if project:
+        conditions.append("`项目` = {project:String}")
+        params["project"] = project
+
+    if vehicleNo:
+        conditions.append("`车号` LIKE {vehicleNo:String}")
+        params["vehicleNo"] = f"%{vehicleNo}%"
+
+    if sectionNo:
+        conditions.append("`节车号` = {sectionNo:String}")
+        params["sectionNo"] = sectionNo
+
+    if process:
+        conditions.append("`工序` = {process:String}")
+        params["process"] = process
+
+    if conditions:
+        return " WHERE " + " AND ".join(conditions), params
+    return "", {}
 
 
 @get("/api/comparison")
-async def get_comparison_data() -> list[ComparisonRecord]:
-    """返回跨系统工序一致比对数据。"""
-    logger.info("收到 /api/comparison 请求")
+async def get_comparison_data(
+    page: int = 1,
+    pageSize: int = 30,
+    search: str | None = None,
+    project: str | None = None,
+    vehicleNo: str | None = None,
+    sectionNo: str | None = None,
+    process: str | None = None,
+    sortField: str = "zid",
+    sortOrder: str = "asc",
+) -> ComparisonResponse:
+    """返回跨系统工序一致比对数据（服务端分页/筛选/排序）。"""
+    logger.info(
+        f"收到请求 page={page} pageSize={pageSize} search={search!r} "
+        f"project={project!r} vehicleNo={vehicleNo!r} sectionNo={sectionNo!r} "
+        f"process={process!r} sort={sortField} {sortOrder}"
+    )
+
+    # 参数校验
+    page = max(page, 1)
+    pageSize = min(max(pageSize, 1), 100)
+    if sortField not in SORT_WHITELIST:
+        sortField = "zid"
+    sort_order_sql = "DESC" if sortOrder.lower() == "desc" else "ASC"
+    sort_col = COLUMN_SQL_MAP[sortField]
+    offset = (page - 1) * pageSize
+
+    where_sql, params = build_where_clause(search, project, vehicleNo, sectionNo, process)
 
     try:
         client = get_ch_client()
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"获取 ClickHouse 客户端失败:\n{traceback.format_exc()}")
         raise HTTPException(status_code=503, detail=f"数据库连接异常: {e}")
 
-    sql = """
+    # 查询总数（COUNT 可考虑用近似值 uniq() 但精确计数也不慢）
+    count_sql = f"SELECT count() AS cnt FROM dwd.comparison_of_process_work_hours{where_sql}"
+    try:
+        cnt_df = client.query_df(count_sql, parameters=params)
+        total = int(cnt_df.iloc[0]["cnt"])
+        logger.info(f"COUNT 结果: {total} 行")
+    except Exception as e:
+        logger.error(f"COUNT 查询失败:\n{traceback.format_exc()}")
+        raise HTTPException(status_code=502, detail=f"总数查询失败: {e}")
+
+    if total == 0:
+        return ComparisonResponse(data=[], total=0, page=page, pageSize=pageSize)
+
+    # 查询分页数据
+    data_sql = f"""
         SELECT
             zid,
             `项目`   AS project,
@@ -80,16 +185,17 @@ async def get_comparison_data() -> list[ComparisonRecord]:
             `MES派工单中是否存在`           AS mesDispatch,
             `生产辅助系统工时中是否存在`    AS auxWorkHours
         FROM dwd.comparison_of_process_work_hours
-        ORDER BY zid
+        {where_sql}
+        ORDER BY {sort_col} {sort_order_sql}
+        LIMIT {pageSize} OFFSET {offset}
     """
-
     try:
-        logger.info(f"执行查询: {sql.strip()[:120]}...")
-        df = client.query_df(sql)
-        logger.info(f"查询返回 {len(df)} 行")
+        logger.info(f"执行数据查询 offset={offset} limit={pageSize}")
+        df = client.query_df(data_sql, parameters=params)
+        logger.info(f"返回 {len(df)} 行")
     except Exception as e:
-        logger.error(f"ClickHouse 查询失败:\n{traceback.format_exc()}")
-        raise HTTPException(status_code=502, detail=f"数据库查询失败: {e}")
+        logger.error(f"数据查询失败:\n{traceback.format_exc()}")
+        raise HTTPException(status_code=502, detail=f"数据查询失败: {e}")
 
     try:
         df = df.where(df.notna(), None)
@@ -111,18 +217,13 @@ async def get_comparison_data() -> list[ComparisonRecord]:
         logger.error(f"数据转换失败:\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"数据转换异常: {e}")
 
-    logger.info(f"成功返回 {len(records)} 条记录")
-    return records
-
-
-# ── 全局异常处理 ───────────────────────────────────────
-def global_exception_handler(request: Request, exc: Exception) -> dict:
-    logger.error(f"未捕获异常 {request.url}:\n{traceback.format_exc()}")
-    return {
-        "detail": str(exc),
-        "error_type": type(exc).__name__,
-        "traceback": traceback.format_exc(),
-    }
+    logger.info(f"响应: {len(records)} 条 / 共 {total} 条")
+    return ComparisonResponse(
+        data=records,
+        total=total,
+        page=page,
+        pageSize=pageSize,
+    )
 
 
 # ── 应用 ───────────────────────────────────────────────
@@ -144,7 +245,6 @@ static_router = create_static_files_router(
 app = Litestar(
     route_handlers=[get_comparison_data, static_router],
     cors_config=cors_config,
-    exception_handlers={Exception: global_exception_handler},
 )
 
 if __name__ == "__main__":
