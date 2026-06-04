@@ -1,6 +1,7 @@
 from litestar import Litestar, get
 from litestar.config.cors import CORSConfig
 from pydantic import BaseModel
+from litestar.static_files import StaticFilesConfig
 import clickhouse_connect
 
 CH_HOST = "10.24.5.59"
@@ -71,6 +72,13 @@ cors_config = CORSConfig(allow_origins=["*"], allow_methods=["GET"])
 app = Litestar(
     route_handlers=[get_comparison_data],
     cors_config=cors_config,
+    static_files_config=[
+        StaticFilesConfig(
+            path="/static",
+            directories=["static"],
+            name="static",
+            html_mode=True)
+    ],
 )
 
 if __name__ == "__main__":
