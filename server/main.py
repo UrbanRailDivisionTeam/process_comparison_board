@@ -67,7 +67,12 @@ async def get_comparison_data() -> list[ComparisonRecord]:
     return records
 
 
-cors_config = CORSConfig(allow_origins=["*"], allow_methods=["GET"])
+cors_config = CORSConfig(
+    allow_origins=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["*"],
+    allow_credentials=False,
+)
 
 app = Litestar(
     route_handlers=[get_comparison_data],
