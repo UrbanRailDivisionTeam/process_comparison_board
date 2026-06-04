@@ -52,9 +52,9 @@ export default function Page() {
     fetch("/api/filter-options")
       .then((res) => res.json())
       .then((opts: FilterOptions) => {
-        setProjectOptions(opts.projects)
-        setSectionNoOptions(opts.sectionNos)
-        setProcessOptions(opts.processes)
+        setProjectOptions(opts.projects.filter(Boolean))
+        setSectionNoOptions(opts.sectionNos.filter(Boolean))
+        setProcessOptions(opts.processes.filter(Boolean))
       })
       .catch(() => {
         // 使用默认值兜底

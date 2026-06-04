@@ -246,9 +246,9 @@ async def get_filter_options() -> FilterOptions:
         sect_df = client.query_df("SELECT DISTINCT `节车号` AS val FROM dwd.comparison_of_process_work_hours ORDER BY val")
         proc_df = client.query_df("SELECT DISTINCT `工序` AS val FROM dwd.comparison_of_process_work_hours ORDER BY val")
 
-        projects = [str(v) for v in proj_df["val"].tolist()]
-        sectionNos = [str(v) for v in sect_df["val"].tolist()]
-        processes = [str(v) for v in proc_df["val"].tolist()]
+        projects = [str(v) for v in proj_df["val"].tolist() if v]
+        sectionNos = [str(v) for v in sect_df["val"].tolist() if v]
+        processes = [str(v) for v in proc_df["val"].tolist() if v]
 
         logger.info(f"筛选选项: {len(projects)} 个项目, {len(sectionNos)} 个节车号, {len(processes)} 个工序")
         return FilterOptions(
