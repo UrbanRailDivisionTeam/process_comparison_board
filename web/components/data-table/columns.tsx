@@ -9,11 +9,11 @@ import { Button } from "@/components/ui/button"
 function BoolCell({ value }: { value: number }) {
     return value === 1 ? (
         <Badge variant="default" className="gap-1">
-            <Check className="size-3" />是
+            <Check className="size-3" />存在
         </Badge>
     ) : (
         <Badge variant="destructive" className="gap-1">
-            <X className="size-3" />否
+            <X className="size-3" />不存在
         </Badge>
     )
 }
