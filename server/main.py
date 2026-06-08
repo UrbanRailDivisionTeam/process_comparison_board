@@ -24,7 +24,7 @@ CH_PASSWORD = "Swq8855830."
 
 # ── 允许的排序字段白名单（防注入）──────────────────────
 SORT_WHITELIST = {
-    "zid", "project", "projectAbbr", "vehicleNo", "sectionNo", "process",
+    "zid", "project", "projectAbbr", "vehicleNo", "sectionNo", "process", "processName",
     "easOrder", "easWorkHours", "mesDispatch", "easBom",
 }
 
@@ -35,6 +35,7 @@ COLUMN_SQL_MAP = {
     "vehicleNo":     "`车号`",
     "sectionNo":     "`节车号`",
     "process":       "`工序`",
+    "processName":   "`工序名称`",
     "easOrder":      "`EAS生产订单中是否存在`",
     "easWorkHours":  "`EAS工时中是否存在`",
     "mesDispatch":   "`MES排程中是否存在`",
@@ -49,6 +50,7 @@ class ComparisonRecord(BaseModel):
     vehicleNo: str
     sectionNo: str
     process: str
+    processName: str
     easOrder: int
     easWorkHours: int
     mesDispatch: int
@@ -88,6 +90,7 @@ def build_where_clause(
     vehicleNo: str | None,
     sectionNo: str | None,
     process: str | None,
+    processName: str | None,
 ) -> tuple[str, dict]:
     """构建 WHERE 子句和参数。返回 (sql, params_dict)。"""
     conditions: list[str] = []
@@ -100,7 +103,8 @@ def build_where_clause(
             "  `项目简称` LIKE {search:String} OR "
             "  `车号`   LIKE {search:String} OR "
             "  `节车号` LIKE {search:String} OR "
-            "  `工序`   LIKE {search:String}"
+            "  `工序`   LIKE {search:String} OR "
+            "  `工序名称` LIKE {search:String}"
             ")"
         )
         params["search"] = f"%{search}%"
@@ -125,6 +129,10 @@ def build_where_clause(
         conditions.append("`工序` LIKE {process:String}")
         params["process"] = f"%{process}%"
 
+    if processName:
+        conditions.append("`工序名称` LIKE {processName:String}")
+        params["processName"] = f"%{processName}%"
+
     if conditions:
         return " WHERE " + " AND ".join(conditions), params
     return "", {}
@@ -140,6 +148,7 @@ async def get_comparison_data(
     vehicleNo: str | None = None,
     sectionNo: str | None = None,
     process: str | None = None,
+    processName: str | None = None,
     sortField: str = "zid",
     sortOrder: str = "asc",
     all: int = 0,
@@ -150,7 +159,7 @@ async def get_comparison_data(
     logger.info(
         f"收到请求 page={page} pageSize={pageSize} export={export_mode} search={search!r} "
         f"project={project!r} projectAbbr={projectAbbr!r} vehicleNo={vehicleNo!r} sectionNo={sectionNo!r} "
-        f"process={process!r} sort={sortField} {sortOrder}"
+        f"process={process!r} processName={processName!r} sort={sortField} {sortOrder}"
     )
 
     if sortField not in SORT_WHITELIST:
@@ -158,7 +167,7 @@ async def get_comparison_data(
     sort_order_sql = "DESC" if sortOrder.lower() == "desc" else "ASC"
     sort_col = COLUMN_SQL_MAP[sortField]
 
-    where_sql, params = build_where_clause(search, project, projectAbbr, vehicleNo, sectionNo, process)
+    where_sql, params = build_where_clause(search, project, projectAbbr, vehicleNo, sectionNo, process, processName)
 
     try:
         client = get_ch_client()
@@ -176,6 +185,7 @@ async def get_comparison_data(
                 `车号`     AS vehicleNo,
                 `节车号`   AS sectionNo,
                 `工序`     AS process,
+                `工序名称` AS processName,
                 `EAS生产订单中是否存在`        AS easOrder,
                 `EAS工时中是否存在`            AS easWorkHours,
                 `MES排程中是否存在`             AS mesDispatch,
@@ -222,6 +232,7 @@ async def get_comparison_data(
             `车号`     AS vehicleNo,
             `节车号`   AS sectionNo,
             `工序`     AS process,
+            `工序名称` AS processName,
             `EAS生产订单中是否存在`        AS easOrder,
             `EAS工时中是否存在`            AS easWorkHours,
             `MES排程中是否存在`             AS mesDispatch,
@@ -256,6 +267,7 @@ def _df_to_records(df) -> list[ComparisonRecord]:
             vehicleNo=str(row["vehicleNo"]),
             sectionNo=str(row["sectionNo"]),
             process=str(row["process"]),
+            processName=str(row["processName"]),
             easOrder=int(row["easOrder"]),
             easWorkHours=int(row["easWorkHours"]),
             mesDispatch=int(row["mesDispatch"]),

@@ -55,6 +55,11 @@ export const columns: ColumnDef<ProcessComparison>[] = [
         header: "工序",
     },
     {
+        accessorKey: "processName",
+        header: "工序名称",
+        filterFn: "equals",
+    },
+    {
         accessorKey: "easOrder",
         header: "EAS 生产订单",
         cell: ({ row }) => <BoolCell value={row.original.easOrder} />,

@@ -19,6 +19,7 @@ export default function Page() {
     const [vehicleNoFilter, setVehicleNoFilter] = useState("")
     const [sectionNoFilter, setSectionNoFilter] = useState("")
     const [processFilter, setProcessFilter] = useState("")
+    const [processNameFilter, setProcessNameFilter] = useState("")
 
     // ── 表格状态（服务端）─────────────────────────────
     const [sorting, setSorting] = useState<SortingState>([])
@@ -46,6 +47,7 @@ export default function Page() {
         vehicleNo: string
         sectionNo: string
         process: string
+        processName: string
         sortField: string
         sortOrder: string
     }
@@ -67,6 +69,7 @@ export default function Page() {
         if (params.vehicleNo) q.set("vehicleNo", params.vehicleNo)
         if (params.sectionNo) q.set("sectionNo", params.sectionNo)
         if (params.process) q.set("process", params.process)
+        if (params.processName) q.set("processName", params.processName)
         q.set("sortField", params.sortField)
         q.set("sortOrder", params.sortOrder)
 
@@ -99,10 +102,11 @@ export default function Page() {
             vehicleNo: vehicleNoFilter,
             sectionNo: sectionNoFilter,
             process: processFilter,
+            processName: processNameFilter,
             sortField,
             sortOrder,
         }
-    }, [pagination, sorting, globalFilter, projectFilter, projectAbbrFilter, vehicleNoFilter, sectionNoFilter, processFilter])
+    }, [pagination, sorting, globalFilter, projectFilter, projectAbbrFilter, vehicleNoFilter, sectionNoFilter, processFilter, processNameFilter])
 
     useEffect(() => {
         if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -137,7 +141,7 @@ export default function Page() {
     })
 
     const hasActiveFilters =
-        projectFilter !== "" || projectAbbrFilter !== "" || vehicleNoFilter !== "" || sectionNoFilter !== "" || processFilter !== "" || globalFilter !== ""
+        projectFilter !== "" || projectAbbrFilter !== "" || vehicleNoFilter !== "" || sectionNoFilter !== "" || processFilter !== "" || processNameFilter !== "" || globalFilter !== ""
 
     function clearFilters() {
         setProjectFilter("")
@@ -145,6 +149,7 @@ export default function Page() {
         setVehicleNoFilter("")
         setSectionNoFilter("")
         setProcessFilter("")
+        setProcessNameFilter("")
         setGlobalFilter("")
     }
 
@@ -160,6 +165,7 @@ export default function Page() {
             if (p.vehicleNo) q.set("vehicleNo", p.vehicleNo)
             if (p.sectionNo) q.set("sectionNo", p.sectionNo)
             if (p.process) q.set("process", p.process)
+            if (p.processName) q.set("processName", p.processName)
             q.set("sortField", p.sortField)
             q.set("sortOrder", p.sortOrder)
 
@@ -174,6 +180,7 @@ export default function Page() {
                 车号: row.vehicleNo,
                 节车号: row.sectionNo,
                 工序: row.process,
+                工序名称: row.processName,
                 "EAS 生产订单": row.easOrder ? "是" : "否",
                 "EAS 工时": row.easWorkHours ? "是" : "否",
                 "MES 排程": row.mesDispatch ? "是" : "否",
@@ -181,7 +188,7 @@ export default function Page() {
             }))
 
             const ws = XLSX.utils.json_to_sheet(exportData)
-            ws["!cols"] = [{ wch: 6 }, { wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 10 }]
+            ws["!cols"] = [{ wch: 6 }, { wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 10 }]
 
             const wb = XLSX.utils.book_new()
             XLSX.utils.book_append_sheet(wb, ws, "跨系统工序一致比对")
@@ -210,6 +217,8 @@ export default function Page() {
                     onSectionNoFilterChange={setSectionNoFilter}
                     processFilter={processFilter}
                     onProcessFilterChange={setProcessFilter}
+                    processNameFilter={processNameFilter}
+                    onProcessNameFilterChange={setProcessNameFilter}
                     onClearFilters={clearFilters}
                     onExport={handleExport}
                     exporting={exporting}

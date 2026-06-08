@@ -17,6 +17,8 @@ interface DataTableToolbarProps {
     onSectionNoFilterChange: (value: string) => void
     processFilter: string
     onProcessFilterChange: (value: string) => void
+    processNameFilter: string
+    onProcessNameFilterChange: (value: string) => void
     onClearFilters: () => void
     onExport: () => void
     exporting?: boolean
@@ -36,6 +38,8 @@ export function DataTableToolbar({
     onSectionNoFilterChange,
     processFilter,
     onProcessFilterChange,
+    processNameFilter,
+    onProcessNameFilterChange,
     onClearFilters,
     onExport,
     exporting,
@@ -63,6 +67,7 @@ export function DataTableToolbar({
                 <FilterInput placeholder="车号筛选..." value={vehicleNoFilter} onChange={onVehicleNoFilterChange} />
                 <FilterInput placeholder="节车号筛选..." value={sectionNoFilter} onChange={onSectionNoFilterChange} />
                 <FilterInput placeholder="工序筛选..." value={processFilter} onChange={onProcessFilterChange} />
+                <FilterInput placeholder="工序名称筛选..." value={processNameFilter} onChange={onProcessNameFilterChange} />
 
                 {hasActiveFilters && (
                     <Button variant="ghost" size="sm" onClick={onClearFilters}>
