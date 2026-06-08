@@ -53,9 +53,9 @@ export const columns: ColumnDef<ProcessComparison>[] = [
         header: "工序",
     },
     {
-        accessorKey: "easBom",
-        header: "EAS BOM",
-        cell: ({ row }) => <BoolCell value={row.original.easBom} />,
+        accessorKey: "easOrder",
+        header: "EAS 生产订单",
+        cell: ({ row }) => <BoolCell value={row.original.easOrder} />,
         filterFn: "equals",
     },
     {
@@ -70,10 +70,5 @@ export const columns: ColumnDef<ProcessComparison>[] = [
         cell: ({ row }) => <BoolCell value={row.original.mesDispatch} />,
         filterFn: "equals",
     },
-    {
-        accessorKey: "auxWorkHours",
-        header: "生产辅助工时",
-        cell: ({ row }) => <BoolCell value={row.original.auxWorkHours} />,
-        filterFn: "equals",
-    },
+
 ]

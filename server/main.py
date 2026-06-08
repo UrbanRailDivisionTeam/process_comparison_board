@@ -25,7 +25,7 @@ CH_PASSWORD = "Swq8855830."
 # ── 允许的排序字段白名单（防注入）──────────────────────
 SORT_WHITELIST = {
     "zid", "project", "projectAbbr", "vehicleNo", "sectionNo", "process",
-    "easBom", "easWorkHours", "mesDispatch", "auxWorkHours",
+    "easOrder", "easWorkHours", "mesDispatch",
 }
 
 COLUMN_SQL_MAP = {
@@ -35,10 +35,9 @@ COLUMN_SQL_MAP = {
     "vehicleNo":     "`车号`",
     "sectionNo":     "`节车号`",
     "process":       "`工序`",
-    "easBom":        "`EASBOM中是否存在`",
+    "easOrder":      "`EAS生产订单中是否存在`",
     "easWorkHours":  "`EAS工时中是否存在`",
     "mesDispatch":   "`MES排程中是否存在`",
-    "auxWorkHours":  "`生产辅助系统工时中是否存在`",
 }
 
 
@@ -49,10 +48,9 @@ class ComparisonRecord(BaseModel):
     vehicleNo: str
     sectionNo: str
     process: str
-    easBom: int
+    easOrder: int
     easWorkHours: int
     mesDispatch: int
-    auxWorkHours: int
 
 
 class ComparisonResponse(BaseModel):
@@ -176,10 +174,9 @@ async def get_comparison_data(
                 `车号`     AS vehicleNo,
                 `节车号`   AS sectionNo,
                 `工序`     AS process,
-                `EASBOM中是否存在`            AS easBom,
+                `EAS生产订单中是否存在`        AS easOrder,
                 `EAS工时中是否存在`            AS easWorkHours,
-                `MES排程中是否存在`             AS mesDispatch,
-                `生产辅助系统工时中是否存在`    AS auxWorkHours
+                `MES排程中是否存在`             AS mesDispatch
             FROM dwd.comparison_of_process_work_hours
             {where_sql}
             ORDER BY {sort_col} {sort_order_sql}
@@ -222,10 +219,9 @@ async def get_comparison_data(
             `车号`     AS vehicleNo,
             `节车号`   AS sectionNo,
             `工序`     AS process,
-            `EASBOM中是否存在`            AS easBom,
+            `EAS生产订单中是否存在`        AS easOrder,
             `EAS工时中是否存在`            AS easWorkHours,
-            `MES排程中是否存在`             AS mesDispatch,
-            `生产辅助系统工时中是否存在`    AS auxWorkHours
+            `MES排程中是否存在`             AS mesDispatch
         FROM dwd.comparison_of_process_work_hours
         {where_sql}
         ORDER BY {sort_col} {sort_order_sql}
@@ -256,10 +252,9 @@ def _df_to_records(df) -> list[ComparisonRecord]:
             vehicleNo=str(row["vehicleNo"]),
             sectionNo=str(row["sectionNo"]),
             process=str(row["process"]),
-            easBom=int(row["easBom"]),
+            easOrder=int(row["easOrder"]),
             easWorkHours=int(row["easWorkHours"]),
             mesDispatch=int(row["mesDispatch"]),
-            auxWorkHours=int(row["auxWorkHours"]),
         )
         for row in df.to_dict(orient="records")
     ]

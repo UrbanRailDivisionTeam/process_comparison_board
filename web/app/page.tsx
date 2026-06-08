@@ -186,16 +186,15 @@ export default function Page() {
         车号: row.vehicleNo,
         节车号: row.sectionNo,
         工序: row.process,
-        "EAS BOM": row.easBom ? "是" : "否",
+        "EAS 生产订单": row.easOrder ? "是" : "否",
         "EAS 工时": row.easWorkHours ? "是" : "否",
         "MES 排程": row.mesDispatch ? "是" : "否",
-        生产辅助工时: row.auxWorkHours ? "是" : "否",
       }))
 
       const ws = XLSX.utils.json_to_sheet(exportData)
       ws["!cols"] = [
         { wch: 6 }, { wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 10 }, { wch: 14 },
-        { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 14 },
+        { wch: 12 }, { wch: 10 }, { wch: 12 },
       ]
 
       const wb = XLSX.utils.book_new()

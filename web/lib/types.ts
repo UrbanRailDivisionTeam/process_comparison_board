@@ -5,10 +5,9 @@ export interface ProcessComparison {
     vehicleNo: string // 车号
     sectionNo: string // 节车号
     process: string // 工序
-    easBom: number // EASBOM中是否存在 (0/1)
+    easOrder: number // EAS生产订单中是否存在 (0/1)
     easWorkHours: number // EAS工时中是否存在 (0/1)
     mesDispatch: number // MES排程中是否存在 (0/1)
-    auxWorkHours: number // 生产辅助系统工时中是否存在 (0/1)
 }
 
 export interface ComparisonApiResponse {
