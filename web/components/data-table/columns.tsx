@@ -66,7 +66,7 @@ export const columns: ColumnDef<ProcessComparison>[] = [
     },
     {
         accessorKey: "mesDispatch",
-        header: "MES 派工单",
+        header: "MES 排程",
         cell: ({ row }) => <BoolCell value={row.original.mesDispatch} />,
         filterFn: "equals",
     },

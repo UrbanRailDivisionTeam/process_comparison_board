@@ -188,7 +188,7 @@ export default function Page() {
         工序: row.process,
         "EAS BOM": row.easBom ? "是" : "否",
         "EAS 工时": row.easWorkHours ? "是" : "否",
-        "MES 派工单": row.mesDispatch ? "是" : "否",
+        "MES 排程": row.mesDispatch ? "是" : "否",
         生产辅助工时: row.auxWorkHours ? "是" : "否",
       }))
 
