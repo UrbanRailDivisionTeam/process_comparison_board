@@ -37,7 +37,7 @@ COLUMN_SQL_MAP = {
     "process":       "`工序`",
     "easBom":        "`EASBOM中是否存在`",
     "easWorkHours":  "`EAS工时中是否存在`",
-    "mesDispatch":   "`MES中排程是否存在`",
+    "mesDispatch":   "`MES排程中是否存在`",
     "auxWorkHours":  "`生产辅助系统工时中是否存在`",
 }
 
@@ -178,7 +178,7 @@ async def get_comparison_data(
                 `工序`     AS process,
                 `EASBOM中是否存在`            AS easBom,
                 `EAS工时中是否存在`            AS easWorkHours,
-                `MES中排程是否存在`             AS mesDispatch,
+                `MES排程中是否存在`             AS mesDispatch,
                 `生产辅助系统工时中是否存在`    AS auxWorkHours
             FROM dwd.comparison_of_process_work_hours
             {where_sql}
@@ -224,7 +224,7 @@ async def get_comparison_data(
             `工序`     AS process,
             `EASBOM中是否存在`            AS easBom,
             `EAS工时中是否存在`            AS easWorkHours,
-            `MES中排程是否存在`             AS mesDispatch,
+            `MES排程中是否存在`             AS mesDispatch,
             `生产辅助系统工时中是否存在`    AS auxWorkHours
         FROM dwd.comparison_of_process_work_hours
         {where_sql}
