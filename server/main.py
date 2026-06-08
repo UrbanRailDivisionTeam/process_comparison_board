@@ -25,7 +25,7 @@ CH_PASSWORD = "Swq8855830."
 # ── 允许的排序字段白名单（防注入）──────────────────────
 SORT_WHITELIST = {
     "zid", "project", "projectAbbr", "vehicleNo", "sectionNo", "process",
-    "easOrder", "easWorkHours", "mesDispatch",
+    "easOrder", "easWorkHours", "mesDispatch", "easBom",
 }
 
 COLUMN_SQL_MAP = {
@@ -38,6 +38,7 @@ COLUMN_SQL_MAP = {
     "easOrder":      "`EAS生产订单中是否存在`",
     "easWorkHours":  "`EAS工时中是否存在`",
     "mesDispatch":   "`MES排程中是否存在`",
+    "easBom":        "`EASBOM中是否存在`",
 }
 
 
@@ -51,6 +52,7 @@ class ComparisonRecord(BaseModel):
     easOrder: int
     easWorkHours: int
     mesDispatch: int
+    easBom: int
 
 
 class ComparisonResponse(BaseModel):
@@ -176,19 +178,20 @@ async def get_comparison_data(
                 `工序`     AS process,
                 `EAS生产订单中是否存在`        AS easOrder,
                 `EAS工时中是否存在`            AS easWorkHours,
-                `MES排程中是否存在`             AS mesDispatch
-            FROM dwd.comparison_of_process_work_hours
-            {where_sql}
-            ORDER BY {sort_col} {sort_order_sql}
-        """
-        try:
-            logger.info("执行导出查询（无分页）")
-            df = client.query_df(data_sql, parameters=params)
-            total = len(df)
-            logger.info(f"导出 {total} 行")
-        except Exception as e:
-            logger.error(f"导出查询失败:\n{traceback.format_exc()}")
-            raise HTTPException(status_code=502, detail=f"导出查询失败: {e}")
+                `MES排程中是否存在`             AS mesDispatch,
+                `EASBOM中是否存在`              AS easBom
+        FROM dwd.comparison_of_process_work_hours
+        {where_sql}
+        ORDER BY {sort_col} {sort_order_sql}
+    """
+    try:
+        logger.info("执行导出查询（无分页）")
+        df = client.query_df(data_sql, parameters=params)
+        total = len(df)
+        logger.info(f"导出 {total} 行")
+    except Exception as e:
+        logger.error(f"导出查询失败:\n{traceback.format_exc()}")
+        raise HTTPException(status_code=502, detail=f"导出查询失败: {e}")
 
         df = df.where(df.notna(), None)
         records = _df_to_records(df)
@@ -221,11 +224,12 @@ async def get_comparison_data(
             `工序`     AS process,
             `EAS生产订单中是否存在`        AS easOrder,
             `EAS工时中是否存在`            AS easWorkHours,
-            `MES排程中是否存在`             AS mesDispatch
-        FROM dwd.comparison_of_process_work_hours
-        {where_sql}
-        ORDER BY {sort_col} {sort_order_sql}
-        LIMIT {pageSize} OFFSET {offset}
+            `MES排程中是否存在`             AS mesDispatch,
+            `EASBOM中是否存在`              AS easBom
+    FROM dwd.comparison_of_process_work_hours
+    {where_sql}
+    ORDER BY {sort_col} {sort_order_sql}
+    LIMIT {pageSize} OFFSET {offset}
     """
     try:
         logger.info(f"执行数据查询 offset={offset} limit={pageSize}")
@@ -255,6 +259,7 @@ def _df_to_records(df) -> list[ComparisonRecord]:
             easOrder=int(row["easOrder"]),
             easWorkHours=int(row["easWorkHours"]),
             mesDispatch=int(row["mesDispatch"]),
+            easBom=int(row["easBom"]),
         )
         for row in df.to_dict(orient="records")
     ]

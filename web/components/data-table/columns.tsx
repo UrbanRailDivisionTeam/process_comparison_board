@@ -72,4 +72,10 @@ export const columns: ColumnDef<ProcessComparison>[] = [
         cell: ({ row }) => <BoolCell value={row.original.mesDispatch} />,
         filterFn: "equals",
     },
+    {
+        accessorKey: "easBom",
+        header: "EAS BOM",
+        cell: ({ row }) => <BoolCell value={row.original.easBom} />,
+        filterFn: "equals",
+    },
 ]

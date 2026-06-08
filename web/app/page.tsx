@@ -177,10 +177,11 @@ export default function Page() {
                 "EAS 生产订单": row.easOrder ? "是" : "否",
                 "EAS 工时": row.easWorkHours ? "是" : "否",
                 "MES 排程": row.mesDispatch ? "是" : "否",
+                "EAS BOM": row.easBom ? "是" : "否",
             }))
 
             const ws = XLSX.utils.json_to_sheet(exportData)
-            ws["!cols"] = [{ wch: 6 }, { wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 10 }, { wch: 12 }]
+            ws["!cols"] = [{ wch: 6 }, { wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 10 }]
 
             const wb = XLSX.utils.book_new()
             XLSX.utils.book_append_sheet(wb, ws, "跨系统工序一致比对")

@@ -8,6 +8,7 @@ export interface ProcessComparison {
     easOrder: number // EAS生产订单中是否存在 (0/1)
     easWorkHours: number // EAS工时中是否存在 (0/1)
     mesDispatch: number // MES排程中是否存在 (0/1)
+    easBom: number // EASBOM中是否存在 (0/1)
 }
 
 export interface ComparisonApiResponse {
